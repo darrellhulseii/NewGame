@@ -174,8 +174,8 @@ button{font-family:'Press Start 2P',monospace;cursor:pointer;}
 <!-- ═══════════ SCREENS ═══════════ -->
 <div class="screen active" id="title-screen">
   <div class="title-logo">
-    <div class="title-main">TRAPPED</div>
-    <div class="title-sub">IN ANOTHER WORLD</div>
+    <div class="title-main">TRAPPED IN<br>ANOTHER WORLD</div>
+    <div class="title-sub">A FRIEREN STORY</div>
     <div class="title-3d">◆ 3D RPG ◆</div>
   </div>
   <button class="title-btn" onclick="startNewGame()">▶ NEW GAME</button>
@@ -277,6 +277,14 @@ button{font-family:'Press Start 2P',monospace;cursor:pointer;}
   <div id="bossLoreTitle"></div><div id="bossLoreSubtitle"></div><div id="bossLoreText"></div>
   <button class="continue-btn" onclick="dismissBossLore()">⚔ FIGHT ▶</button>
 </div></div>
+<div id="mythLoreOverlay" style="position:fixed;inset:0;z-index:73;display:none;align-items:center;justify-content:center;background:rgba(4,2,12,.88);">
+  <div class="panel" id="mythLoreCard" style="max-width:330px;padding:20px 16px;text-align:center;">
+    <div id="mythLoreTitle" style="font-size:10px;margin-bottom:6px;text-shadow:0 0 14px currentColor;line-height:1.7;"></div>
+    <div id="mythLoreOrigin" style="font-size:5px;color:var(--gray);margin-bottom:12px;letter-spacing:1px;"></div>
+    <div id="mythLoreText" style="font-size:6px;color:var(--white);line-height:2.3;"></div>
+    <button class="continue-btn" id="mythLoreBtn">CONTINUE ▶</button>
+  </div>
+</div>
 <div id="libOverlay"><div class="panel" id="libCard">
   <div id="libTitle"></div><div id="libText"></div>
   <button class="continue-btn" id="libBtn" style="border-color:var(--green);color:var(--green)">CONTINUE ▶</button>
@@ -287,7 +295,7 @@ button{font-family:'Press Start 2P',monospace;cursor:pointer;}
 <script>
 'use strict';
 // ════════════════════════════════════════════════════
-//  FRIEREN 3D RPG — same plot, story, attacks and
+//  TRAPPED IN ANOTHER WORLD — a Frieren 3D RPG: same plot,
 //  animation choreography as the 2D classic,
 //  rebuilt in Three.js r128.
 // ════════════════════════════════════════════════════
@@ -695,6 +703,465 @@ var KAMI_SETS = [
   [ {name:'RYUJIN', hp:900,maxHp:900,atk:138,def:84, exp:580,gold:450, color:'#3878d8', meshKey:'Ryujin', boss:true, special:'Tide Jewel', origin:'Shinto kami'} ],
   [ {name:'SUSANOO', hp:980,maxHp:980,atk:146,def:88, exp:650,gold:520, color:'#8848c8', meshKey:'Susanoo', boss:true, special:'Storm That Slew The Serpent', origin:'Shinto kami'} ],
 ];
+// ══════ THE TRUE STORIES — lore shown after defeating the old myths ══════
+var MYTH_LORE = {
+  'Kappa': {color:'#3a9a58', text:'A river imp of Japanese folklore. The dish of water atop its head is the source of its strength — bow to a kappa, and courtesy compels it to bow back, spilling its power onto the riverbank. It craves cucumbers above all things.'},
+  'Banshee': {color:'#c8d8e8', text:'In Irish folklore the bean sidhe, "woman of the fairy mound," does not kill — she mourns. Her keening wail in the night foretells a death in the old families. To hear her is a warning; to see her comb her hair, an omen.'},
+  'Fear Gorta': {color:'#9a9a7a', text:'The "Man of Hunger" of Irish famine lore — a gaunt wanderer who begs from door to door. Those who share what little they have are blessed with good fortune. Those who refuse learn what hunger truly means.'},
+  'Gallu Demon': {color:'#c84020', text:'In Mesopotamian myth, the gallu were merciless demons of the underworld who could not be bribed, flattered, or moved by tears. It was gallu who dragged the shepherd-king Dumuzid down to the land of no return.'},
+  'Pooka': {color:'#8888a8', text:'The púca of Irish folklore is a shapeshifter — most often a sleek black horse with burning eyes that offers wild midnight rides. Neither wholly wicked nor kind, it ruins any harvest left in the field after the first of November.'},
+  'Tengu': {color:'#c84828', text:'Mountain spirits of Japanese folklore, part man and part bird of prey. Once feared as war-bringers, tengu became stern teachers of swordsmanship — and punishers of the arrogant, whom they love to humble.'},
+  'Oni': {color:'#b82828', text:'The horned ogres of Japanese folklore, born of wicked souls, wielding great iron clubs. "Oni with an iron club" is still a saying for unbeatable strength. On Setsubun, beans are thrown to drive them out: "Oni wa soto!"'},
+  'Lamashtu': {color:'#a878c8', text:'A demoness of Mesopotamian myth who slipped into homes to menace mothers and newborns. Unlike other demons she acted on her own malice, unbidden by the gods. Amulets of the demon Pazuzu — a rival evil — were hung to drive her away.'},
+  'Anzu': {color:'#c8983a', text:'The great storm-bird of Mesopotamian myth, lion-headed and vast of wing. Anzu stole the Tablet of Destinies, seizing command of the universe itself, until the warrior god Ninurta struck it down and returned order to the world.'},
+  'Dullahan': {color:'#9ac838', text:'The headless horseman of Irish folklore rides with his own head tucked under one arm. Where the dullahan stops and speaks a name, that person dies. He fears one thing only: gold — even a single pin of it drives him off.'},
+  'Kitsune': {color:'#e8b040', text:'The fox spirits of Japanese folklore grow a new tail with each century of wisdom — nine marks the height of their power. Some serve Inari as sacred messengers; others delight in trickery, lighting travelers astray with ghostly foxfire.'},
+  'Jorogumo': {color:'#d868a0', text:'The "binding bride" of Japanese folklore — a spider that, after four hundred years, takes the form of a beautiful woman. She lures the unwary to her home, binds them in silk stronger than steel, and is never hungry for long.'},
+  'Ugallu': {color:'#a8702a', text:'The lion-headed storm demon of Mesopotamian myth, one of the eleven monsters of chaos mothered by Tiamat. In later ages his image changed sides — carved on amulets and palace walls to frighten off the very evils he once served.'},
+  'Nue': {color:'#6878a8', text:'A chimera of Japanese folklore: monkey head, tanuki body, tiger limbs, serpent tail. It rode a black cloud over the imperial palace, sickening the Emperor, until the archer Minamoto no Yorimasa shot it from the night sky.'},
+  'RAIJIN': {color:'#f8e040', text:'The Shinto kami of thunder and lightning, ringed by the drums he beats to shake the sky. Fearsome yet revered — his storms water the rice fields. Children are still told to hide their bellies, for Raijin is said to eat the navels of the careless.'},
+  'FUJIN': {color:'#48c8a8', text:'The Shinto kami of the wind, who carries every gale in the great bag across his shoulders. One of the eldest gods, present when the world was made — it was his winds that first parted the morning mists so the sun could reach the earth.'},
+  'RYUJIN': {color:'#3878d8', text:'The dragon kami of the sea, dwelling in the coral palace Ryugu-jo beneath the waves. With the tide jewels — one to raise the sea, one to lower it — Ryujin commands every current, and sea turtles carry his messages.'},
+  'SUSANOO': {color:'#8848c8', text:'The Shinto storm god, tempestuous brother of the sun goddess Amaterasu. Banished from heaven, he redeemed himself by slaying the eight-headed serpent Yamata-no-Orochi — and drew from its tail the sacred sword Kusanagi.'},
+};
+// ══════ CELESTIAL SPIRIT CHARACTER MODELS ══════
+function spiritHumanoid(o){ var g = buildHumanoid(o); return g; }
+var SPIRIT_BUILDERS = {
+  AQUARIUS: function(){ // mermaid with urn
+    var g = new THREE.Group();
+    var torso = box(0.42,0.5,0.24, 0x3868c8); torso.position.y = 1.05; g.add(torso);
+    var chest = box(0.44,0.2,0.26, 0x68a8e8); chest.position.y = 1.22; g.add(chest);
+    var head = sph(0.22, 0xf6d2ae); head.position.y = 1.52; g.add(head);
+    var hairB = sph(0.25, 0x2858c8); hairB.scale.set(1,1.2,1); hairB.position.set(0,1.6,-0.06); g.add(hairB);
+    var hairL = cyl(0.08,0.03,1.1, 0x2858c8); hairL.position.set(-0.2,1.0,-0.15); hairL.rotation.z = 0.15; g.add(hairL);
+    var hairR = hairL.clone(); hairR.position.x = 0.2; hairR.rotation.z = -0.15; g.add(hairR);
+    var eL = sph(0.035, 0x203050, {em:0x203050, emI:0.4}); eL.position.set(-0.08,1.54,0.19); g.add(eL);
+    var eR = eL.clone(); eR.position.x = 0.08; g.add(eR);
+    // arms + urn
+    var armL = new THREE.Group(); armL.position.set(-0.26,1.2,0);
+    var aL = cyl(0.06,0.05,0.45, 0xf6d2ae); aL.position.y = -0.22; armL.add(aL); g.add(armL);
+    var armR = new THREE.Group(); armR.position.set(0.26,1.2,0);
+    var aR = cyl(0.06,0.05,0.45, 0xf6d2ae); aR.position.y = -0.22; armR.add(aR); g.add(armR);
+    var urn = cyl(0.14,0.2,0.36, 0x3888d8, 10, {em:0x48a8f8, emI:0.4}); urn.position.set(0,-0.42,0.12); armR.add(urn);
+    var lip = new THREE.Mesh(new THREE.TorusGeometry(0.15,0.035,8,14), mat(0xf8d040)); lip.rotation.x = Math.PI/2; lip.position.set(0,-0.24,0.12); armR.add(lip);
+    // fish tail: curved segments + fin
+    var t1 = cyl(0.2,0.15,0.6, 0x2898b8); t1.position.set(0,0.55,0.05); g.add(t1);
+    var t2 = cyl(0.15,0.1,0.55, 0x28b8c8); t2.position.set(0,0.12,0.22); t2.rotation.x = 0.6; g.add(t2);
+    var fin = box(0.5,0.35,0.04, 0x48d8e8, {em:0x48d8e8, emI:0.4, ds:true}); fin.position.set(0,-0.12,0.5); fin.rotation.x = 1.0; g.add(fin);
+    // scales glint
+    for(var i=0;i<4;i++){ var sc = sph(0.045, 0x68e8f8, {em:0x68e8f8, emI:0.7}); sc.position.set((i%2?0.1:-0.1), 0.7-i*0.14, 0.16+i*0.04); g.add(sc); }
+    g.userData = {armL:armL, armR:armR, head:head, floaty:true, tailFin:fin};
+    return g;
+  },
+  TAURUS: function(){ // minotaur with great axe
+    var g = spiritHumanoid({hairStyle:'none', skin:0x2a2a2a, mask:0x2a2a2a, top:0x2a2a2a, bottom:0x8a6a3a, boots:0x1a1a1a, eye:0xf8f8f0, glove:0x2a2a2a});
+    g.scale.set(1.3,1.3,1.3);
+    // white patches + snout + horns + ears
+    var patch = sph(0.14, 0xf0f0e8); patch.position.set(0.12,0.95,0.13); g.add(patch);
+    var snout = box(0.2,0.14,0.14, 0xd8b090); snout.position.set(0,1.24,0.2); g.add(snout);
+    var nR1 = sph(0.025, 0x181818); nR1.position.set(-0.05,1.24,0.28); g.add(nR1);
+    var nR2 = nR1.clone(); nR2.position.x = 0.05; g.add(nR2);
+    var ring = new THREE.Mesh(new THREE.TorusGeometry(0.05,0.015,6,10), mat(0xf8c840)); ring.position.set(0,1.16,0.28); g.add(ring);
+    var hL = cyl(0.045,0.02,0.4, 0xe8dcc8); hL.position.set(-0.26,1.56,0); hL.rotation.z = 1.0; g.add(hL);
+    var hR = hL.clone(); hR.position.x = 0.26; hR.rotation.z = -1.0; g.add(hR);
+    var earL = cone(0.06,0.16, 0x2a2a2a, 5); earL.rotation.z = Math.PI/2; earL.position.set(-0.24,1.4,0); g.add(earL);
+    var earR = earL.clone(); earR.rotation.z = -Math.PI/2; earR.position.x = 0.24; g.add(earR);
+    // giant labrys axe in right arm
+    var pole = cyl(0.035,0.035,1.7, 0x6a4a2a); pole.position.set(0,-0.5,0.1); g.userData.armR.add(pole);
+    var bladeL = box(0.05,0.5,0.34, 0xc8ccd8, {em:0x8890a8, emI:0.4}); bladeL.position.set(-0.18,0.28,0.1); g.userData.armR.add(bladeL);
+    var bladeR = bladeL.clone(); bladeR.position.x = 0.18; g.userData.armR.add(bladeR);
+    return g;
+  },
+  SAGITTARIUS: function(){ // archer in a horse costume
+    var g = spiritHumanoid({hairStyle:'none', skin:0xf0d0b0, top:0x2a4a2a, bottom:0x1a3a1a, boots:0x101f10, eye:0x203050});
+    var horseHead = box(0.3,0.26,0.4, 0x4a3a28); horseHead.position.set(0,1.62,0.1); g.add(horseHead);
+    var muzzle = box(0.16,0.14,0.2, 0x6a5238); muzzle.position.set(0,1.56,0.36); g.add(muzzle);
+    var earA = cone(0.05,0.16, 0x4a3a28, 5); earA.position.set(-0.1,1.82,0); g.add(earA);
+    var earB = earA.clone(); earB.position.x = 0.1; g.add(earB);
+    var mane = box(0.08,0.2,0.3, 0x2a2018); mane.position.set(0,1.76,-0.12); g.add(mane);
+    // bow in left arm
+    var bow = new THREE.Mesh(new THREE.TorusGeometry(0.4,0.025,6,16,Math.PI), mat(0x8a5a2a));
+    bow.rotation.z = Math.PI/2; bow.position.set(0,-0.45,0.12); g.userData.armL.add(bow);
+    var str = box(0.01,0.8,0.01, 0xe8e8e8); str.position.set(0,-0.45,0.12); g.userData.armL.add(str);
+    return g;
+  },
+  LEO: function(){ // Loke: suit, wild orange mane, Regulus fists
+    var g = spiritHumanoid({hairStyle:'spiky', hair:0xe8822a, top:0x1c1c24, bottom:0x14141a, boots:0x0c0c10, eye:0x486848, glove:0xf8d040});
+    var tie = box(0.06,0.2,0.03, 0xc82838); tie.position.set(0,0.98,0.14); g.add(tie);
+    var shirt = box(0.16,0.16,0.02, 0xf0f0f0); shirt.position.set(0,1.05,0.135); g.add(shirt);
+    // glowing regulus fists
+    var fL = sph(0.1, 0xf8d040, {em:0xf8d040, emI:0.9}); fL.position.set(0,-0.52,0); g.userData.armL.add(fL);
+    var fR = fL.clone(); g.userData.armR.add(fR);
+    var glasses = box(0.3,0.05,0.02, 0x68a8d8, {em:0x68a8d8, emI:0.5}); glasses.position.set(0,1.36,0.18); g.add(glasses);
+    return g;
+  },
+  CANCER: function(){ // crab hairdresser: shades, twin scissors, crab legs
+    var g = spiritHumanoid({hairStyle:'slick', hair:0x101828, top:0x2848a8, bottom:0x1a1a2a, boots:0x101018, eye:0x101018, skin:0xd8a878});
+    var shades = box(0.3,0.07,0.02, 0x101018); shades.position.set(0,1.35,0.18); g.add(shades);
+    for(var i=0;i<6;i++){
+      var side = i<3?-1:1;
+      var leg = cyl(0.025,0.01,0.6, 0xc84828);
+      leg.position.set(side*0.35, 1.0+(i%3)*0.12, -0.2);
+      leg.rotation.z = side*1.9; leg.rotation.y = side*0.4;
+      g.add(leg);
+    }
+    function scissors(arm){
+      var b1 = box(0.03,0.5,0.015, 0xd8dce8, {em:0x9aa4c0, emI:0.5}); b1.position.set(0.04,-0.72,0.1); b1.rotation.z = 0.2; arm.add(b1);
+      var b2 = b1.clone(); b2.position.x = -0.04; b2.rotation.z = -0.2; arm.add(b2);
+    }
+    scissors(g.userData.armL); scissors(g.userData.armR);
+    return g;
+  },
+  VIRGO: function(){ // chained maid
+    var g = spiritHumanoid({hairStyle:'none', hair:0xf090b8, top:0x1c1c24, bottom:0x1c1c24, boots:0x101014, eye:0x4868c8, skin:0xffe2cc});
+    var bob = sph(0.26, 0xf090b8); bob.scale.set(1,0.9,1); bob.position.set(0,1.44,-0.02); g.add(bob);
+    var fringe = box(0.34,0.1,0.1, 0xf090b8); fringe.position.set(0,1.46,0.14); g.add(fringe);
+    var apron = box(0.34,0.4,0.02, 0xf8f8f8); apron.position.set(0,0.78,0.14); g.add(apron);
+    var band = box(0.36,0.06,0.34, 0xf8f8f8); band.position.set(0,1.58,0); g.add(band);
+    // wrist shackles + hanging chain links
+    [g.userData.armL, g.userData.armR].forEach(function(arm){
+      var cuff = new THREE.Mesh(new THREE.TorusGeometry(0.09,0.025,6,12), mat(0x9aa0b8)); cuff.position.set(0,-0.45,0); cuff.rotation.x = Math.PI/2; arm.add(cuff);
+      for(var i=0;i<3;i++){ var link = new THREE.Mesh(new THREE.TorusGeometry(0.04,0.015,5,8), mat(0x9aa0b8)); link.position.set(0,-0.55-i*0.09,0); link.rotation.y = i*1.2; arm.add(link); }
+    });
+    return g;
+  },
+  SCORPIO: function(){ // sand shooter with great metal tail
+    var g = spiritHumanoid({hairStyle:'spiky', hair:0xe83a2a, top:0x1a1a22, bottom:0x8a2a2a, boots:0x101014, eye:0x181818, skin:0xd8a878});
+    var hair2 = cone(0.07,0.24, 0xf8f8f0, 5); hair2.position.set(0.12,1.62,0); g.add(hair2); // red+white hair
+    // segmented tail arcing overhead ending in a cannon stinger
+    var segs = 5;
+    for(var i=0;i<segs;i++){
+      var a = 0.5 + i*0.45;
+      var s = sph(0.11-0.008*i, 0x8a8a98);
+      s.position.set(0, 0.9+Math.sin(a)*1.1, -0.5-Math.cos(a)*0.7+0.4);
+      g.add(s);
+      if(i===segs-1){
+        var sting = cone(0.09,0.3, 0xc8ccd8, 6, {em:0x8890a8, emI:0.5});
+        sting.position.copy(s.position).z += 0.22; sting.rotation.x = Math.PI/2;
+        g.add(sting);
+        g.userData.stinger = sting;
+      }
+    }
+    return g;
+  },
+  CAPRICORN: function(){ // goat butler
+    var g = spiritHumanoid({hairStyle:'none', skin:0xf0ead8, mask:0xf0ead8, top:0x14141c, bottom:0x14141c, boots:0x0c0c10, eye:0x8a2020, beard:0xf0ead8});
+    var hL = new THREE.Mesh(new THREE.TorusGeometry(0.12,0.03,6,12,Math.PI*1.4), mat(0xc8b890));
+    hL.position.set(-0.16,1.58,0); hL.rotation.y = Math.PI/2; g.add(hL);
+    var hR = hL.clone(); hR.position.x = 0.16; g.add(hR);
+    var earL = cone(0.05,0.2, 0xf0ead8, 5); earL.rotation.z = Math.PI/2+0.4; earL.position.set(-0.26,1.36,0); g.add(earL);
+    var earR = earL.clone(); earR.rotation.z = -Math.PI/2-0.4; earR.position.x = 0.26; g.add(earR);
+    var bowtie = box(0.14,0.06,0.02, 0xf8f8f8); bowtie.position.set(0,1.02,0.14); g.add(bowtie);
+    return g;
+  },
+  GEMINI: function(){ // Gemi & Mini: twin floating sprites
+    var g = new THREE.Group();
+    function twin(c, x){
+      var b = new THREE.Group(); b.position.set(x, 1.2, 0);
+      var body = sph(0.24, c); b.add(body);
+      var eL = sph(0.035, 0x181818); eL.position.set(-0.08,0.05,0.21); b.add(eL);
+      var eR = eL.clone(); eR.position.x = 0.08; b.add(eR);
+      var ant = cyl(0.015,0.015,0.2, c); ant.position.set(0,0.3,0); b.add(ant);
+      var tip = sph(0.04, 0xf8d040, {em:0xf8d040, emI:0.9}); tip.position.set(0,0.42,0); b.add(tip);
+      var aL = cyl(0.03,0.02,0.2, c); aL.position.set(-0.26,-0.05,0); aL.rotation.z = 1.2; b.add(aL);
+      var aR = aL.clone(); aR.position.x = 0.26; aR.rotation.z = -1.2; b.add(aR);
+      g.add(b); return b;
+    }
+    g.userData.twinA = twin(0x4888e8, -0.4);
+    g.userData.twinB = twin(0xf09030, 0.4);
+    g.userData.floaty = true;
+    return g;
+  },
+  ARIES: function(){ // shy wool girl with ram horns
+    var g = spiritHumanoid({hairStyle:'none', hair:0xf8b0c8, top:0xf8e8ec, bottom:0xf8e8ec, boots:0xf8d8e0, eye:0x8a5060, skin:0xffe4d0});
+    var bob = sph(0.27, 0xf8b0c8); bob.scale.set(1,0.95,1); bob.position.set(0,1.44,-0.02); g.add(bob);
+    var hL = new THREE.Mesh(new THREE.TorusGeometry(0.11,0.045,6,12,Math.PI*1.5), mat(0xe8c880));
+    hL.position.set(-0.2,1.52,0.02); hL.rotation.y = Math.PI/2; g.add(hL);
+    var hR = hL.clone(); hR.position.x = 0.2; g.add(hR);
+    // wool puffs on dress + shoulders
+    for(var i=0;i<7;i++){
+      var w = sph(0.11+Math.random()*0.05, 0xfdf4f6);
+      var a = i/7*Math.PI*2;
+      w.position.set(Math.cos(a)*0.28, 0.62+((i%2)*0.14), Math.sin(a)*0.16);
+      g.add(w);
+    }
+    var wL = sph(0.12, 0xfdf4f6); wL.position.set(-0.3,1.12,0); g.add(wL);
+    var wR = wL.clone(); wR.position.x = 0.3; g.add(wR);
+    return g;
+  },
+  PISCES: function(){ // twin sea serpents, black and white
+    var g = new THREE.Group();
+    function serpent(c, phase, xoff){
+      var sg = new THREE.Group();
+      var segs = [];
+      for(var i=0;i<6;i++){ var s = sph(0.2-0.02*i, c); sg.add(s); segs.push(s); }
+      var head = box(0.3,0.24,0.34, c); sg.add(head);
+      var eye = sph(0.045, 0xf8d040, {em:0xf8d040, emI:0.9}); sg.add(eye);
+      var fin = box(0.05,0.25,0.2, c===0x181c24?0x3a4058:0xd8dce8, {ds:true}); sg.add(fin);
+      sg.userData = {segs:segs, head:head, eye:eye, fin:fin, phase:phase, xoff:xoff};
+      g.add(sg); return sg;
+    }
+    g.userData.serpA = serpent(0x181c24, 0, -0.5);
+    g.userData.serpB = serpent(0xe8ecf4, Math.PI, 0.5);
+    g.userData.floaty = true;
+    animMixers.push({update:function(){
+      [g.userData.serpA, g.userData.serpB].forEach(function(sg){
+        if(!sg.parent) return;
+        var ud = sg.userData, tt = Date.now()/500 + ud.phase;
+        for(var i=0;i<ud.segs.length;i++){
+          ud.segs[i].position.set(ud.xoff+Math.sin(tt+i*0.6)*0.35, 1.3+Math.cos(tt+i*0.55)*0.45-i*0.04, -i*0.26);
+        }
+        ud.head.position.set(ud.xoff+Math.sin(tt-0.6)*0.35, 1.3+Math.cos(tt-0.55)*0.45, 0.28);
+        ud.eye.position.set(ud.head.position.x+0.1, ud.head.position.y+0.05, ud.head.position.z+0.16);
+        ud.fin.position.set(ud.head.position.x, ud.head.position.y+0.2, ud.head.position.z-0.15);
+      });
+    }});
+    return g;
+  },
+  LIBRA: function(){ // veiled dancer with the balance scales
+    var g = spiritHumanoid({hairStyle:'none', hair:0x201828, top:0x6a4888, bottom:0x50386a, boots:0x2a1c3a, eye:0x8a68c8, skin:0xe8c0a0});
+    var veil = box(0.4,0.5,0.03, 0xc8a8e8, {tr:true, op:0.55, ds:true}); veil.position.set(0,1.3,0.22); g.add(veil);
+    var bun = sph(0.16, 0x201828); bun.position.set(0,1.62,-0.06); g.add(bun);
+    // balance scales in right hand
+    var bar = box(0.5,0.025,0.025, 0xf8c840); bar.position.set(0,-0.5,0.1); g.userData.armR.add(bar);
+    [-0.22,0.22].forEach(function(x){
+      var str = cyl(0.008,0.008,0.16, 0xf8c840); str.position.set(x,-0.58,0.1); g.userData.armR.add(str);
+      var pan = cyl(0.08,0.06,0.03, 0xf8c840, 10, {em:0xf8c840, emI:0.4}); pan.position.set(x,-0.68,0.1); g.userData.armR.add(pan);
+    });
+    g.userData.scalesArm = g.userData.armR;
+    return g;
+  },
+};
+
+// ══════ CELESTIAL SPIRIT SIGNATURE ANIMATIONS ══════
+var SPIRIT_ANIMS = {
+  AQUARIUS: function(sp, eis){ // raises the urn — a tsunami rolls over the enemy line
+    if(sp){ tween(sp.userData.armR.rotation, {x:-2.6}, 260, 'out'); if(sp.userData.tailFin) tween(sp.userData.tailFin.rotation, {x:1.5}, 260); }
+    setTimeout(function(){
+      // the wave: a wide wall of water sweeping from the spirit to the enemies
+      var wave = new THREE.Mesh(new THREE.BoxGeometry(10,1.6,1.2), glowMat(0x48a8f8,0.55));
+      wave.position.set(0,0.8,1.4);
+      var crest = new THREE.Mesh(new THREE.BoxGeometry(10,0.4,0.7), glowMat(0xc8ecff,0.7));
+      crest.position.set(0,1.7,1.4);
+      scene.add(wave); scene.add(crest);
+      var tt = 0;
+      vfxObjects.push({mesh:wave, update:function(dt){
+        tt += dt; var u = Math.min(1, tt/0.8);
+        wave.position.z = 1.4 - u*5.4; crest.position.z = wave.position.z-0.2;
+        wave.scale.y = 1+u*0.8; crest.position.y = 1.7+u*0.7;
+        wave.material.opacity = 0.55*(1-Math.max(0,u-0.7)/0.3);
+        crest.material.opacity = 0.7*(1-Math.max(0,u-0.7)/0.3);
+        if(u>=1){ scene.remove(crest); disposeMesh(crest); return false; }
+        return true;
+      }});
+      shakeArena(700); flashFx('ice');
+      eis.forEach(function(ei,i){ setTimeout(function(){
+        pillarAt(enemyPos(ei),'#4888f8',110); blastAt(enemyPos(ei),'#68b8f8',46);
+      }, 450+i*120); });
+    },300);
+  },
+  TAURUS: function(sp, eis){ // charges the line and slams the labrys
+    if(sp){
+      tween(sp.position, {z:-1.4}, 340, 'out', function(){
+        tween(sp.userData.armR.rotation, {x:-2.8}, 200, 'out', function(){
+          tween(sp.userData.armR.rotation, {x:0.9}, 130, 'in');
+          shakeArena(750); bigScreenFlash('rgba(200,160,80,.3)');
+          eis.forEach(function(ei,i){ setTimeout(function(){
+            blastAt(enemyPos(ei),'#c8842a',54); shockwaveAt(enemyPos(ei),'#c8842a');
+          }, i*130); });
+          setTimeout(function(){ tween(sp.position, {z:2.0}, 340, 'in'); tween(sp.userData.armR.rotation, {x:0}, 300); }, 420);
+        });
+      });
+    } else {
+      eis.forEach(function(ei,i){ setTimeout(function(){ blastAt(enemyPos(ei),'#c8842a',54); shockwaveAt(enemyPos(ei),'#c8842a'); }, i*140); });
+    }
+  },
+  SAGITTARIUS: function(sp, eis){ // draws and looses a volley
+    if(sp){ tween(sp.userData.armL.rotation, {x:-1.5}, 220, 'out'); tween(sp.userData.armR.rotation, {x:-1.2}, 220, 'out'); }
+    var from = sp ? sp.position.clone().add(new THREE.Vector3(0,1.6,-0.5)) : new THREE.Vector3(1.6,2.0,2.0);
+    eis.forEach(function(ei,i){
+      for(var n=0;n<3;n++){ (function(nn){ setTimeout(function(){
+        launchProjectile('#68d848', from, enemyPos(ei), {r:0.08, dur:220});
+      }, 300+i*120+nn*70); })(n); }
+      setTimeout(function(){ blastAt(enemyPos(ei),'#68d848',40); }, 300+i*120+300);
+    });
+    if(sp) setTimeout(function(){ tween(sp.userData.armL.rotation,{x:0},250); tween(sp.userData.armR.rotation,{x:0},250); }, 900);
+  },
+  LEO: function(sp, eis){ // Regulus Impact: dashes through with burning fists
+    if(sp){
+      tween(sp.userData.armR.rotation, {x:-2.2}, 200, 'out');
+      tween(sp.position, {z:-1.8}, 300, 'out', function(){
+        bigScreenFlash('rgba(255,220,120,.45)'); shakeArena(600);
+        eis.forEach(function(ei,i){ setTimeout(function(){
+          blastAt(enemyPos(ei),'#f8c020',62); starsAt(enemyPos(ei),5,'#ffe9a0');
+        }, i*140); });
+        setTimeout(function(){ tween(sp.position, {z:2.0}, 300, 'in'); tween(sp.userData.armR.rotation, {x:0}, 260); }, 480);
+      });
+    } else {
+      bigScreenFlash('rgba(255,220,120,.45)'); shakeArena(600);
+      eis.forEach(function(ei,i){ setTimeout(function(){ blastAt(enemyPos(ei),'#f8c020',62); starsAt(enemyPos(ei),5,'#ffe9a0'); }, i*150); });
+    }
+  },
+  CANCER: function(sp, eis){ // blurs across the line, shears flashing — 'ebi'
+    if(sp){
+      var seq = eis.slice();
+      function dashNext(){
+        if(!seq.length){ tween(sp.position, {x:1.6, z:2.0}, 300, 'in'); return; }
+        var ei = seq.shift();
+        var p = enemyPos(ei);
+        tween(sp.position, {x:p.x*0.7, z:p.z+1.4}, 240, 'out', function(){
+          tween(sp.userData.armL.rotation, {x:-2.2}, 110, 'out', function(){ tween(sp.userData.armL.rotation,{x:0},140); });
+          tween(sp.userData.armR.rotation, {x:-2.2}, 110, 'out', function(){ tween(sp.userData.armR.rotation,{x:0},140); });
+          beamAt(p,'#e84848',120);
+          setTimeout(function(){ beamAt(p.clone().add(new THREE.Vector3(0.3,0.2,0)),'#e84848',120); blastAt(p,'#e84848',40); },100);
+          setTimeout(dashNext, 300);
+        });
+      }
+      dashNext();
+    } else {
+      eis.forEach(function(ei,i){ setTimeout(function(){ beamAt(enemyPos(ei),'#e84848',120); blastAt(enemyPos(ei),'#e84848',40); }, i*160); });
+    }
+  },
+  VIRGO: function(sp, eis){ // dives underground; chains erupt beneath every foe
+    if(sp){
+      tween(sp.position, {y:-1.9}, 320, 'in', function(){
+        shakeArena(500);
+        eis.forEach(function(ei,i){ setTimeout(function(){
+          chainAt(enemyPos(ei)); pillarAt(enemyPos(ei),'#c89858',100); blastAt(enemyPos(ei),'#c89858',42);
+        }, i*140); });
+        setTimeout(function(){ tween(sp.position, {y:0}, 300, 'out'); }, eis.length*140+320);
+      });
+      // dirt kick on dive
+      shockwaveAt(sp.position,'#c89858');
+    } else {
+      shakeArena(500);
+      eis.forEach(function(ei,i){ setTimeout(function(){ chainAt(enemyPos(ei)); pillarAt(enemyPos(ei),'#c89858',100); blastAt(enemyPos(ei),'#c89858',42); }, i*140); });
+    }
+  },
+  SCORPIO: function(sp, eis){ // 'We are!' — sand buster from the tail cannon
+    var from = sp && sp.userData.stinger
+      ? sp.position.clone().add(new THREE.Vector3(0, 2.0, -0.3))
+      : new THREE.Vector3(1.6,2.0,2.0);
+    if(sp){ tween(sp.rotation, {x:-0.18}, 220, 'out', function(){ setTimeout(function(){ tween(sp.rotation,{x:0},260); },700); }); }
+    eis.forEach(function(ei,i){ setTimeout(function(){
+      var p = enemyPos(ei);
+      var b = new THREE.Mesh(new THREE.CylinderGeometry(0.16,0.16,1,8,1,true), glowMat(0xd87828,0.85));
+      b.position.copy(from).add(p).multiplyScalar(0.5); b.lookAt(p); b.rotateX(Math.PI/2);
+      var full = from.distanceTo(p);
+      addVfx(b, 0.5, function(u){ b.scale.y = Math.max(0.01, full*Math.min(1,u/0.55)); b.material.opacity = 0.85*(1-Math.max(0,u-0.55)/0.45); });
+      blastAt(p,'#d87828',48);
+    }, 280+i*140); });
+  },
+  CAPRICORN: function(sp, eis){ // martial dash: a flurry of kicks
+    if(sp){
+      tween(sp.position, {z:-1.6}, 280, 'out', function(){
+        eis.forEach(function(ei,i){ setTimeout(function(){
+          var p = enemyPos(ei);
+          blastAt(p,'#8a6a4a',38);
+          setTimeout(function(){ blastAt(p.clone().add(new THREE.Vector3(0.25,0.3,0)),'#8a6a4a',34); },90);
+          setTimeout(function(){ shockwaveAt(p,'#8a6a4a'); },180);
+          tween(sp.rotation, {z:(i%2?0.35:-0.35)}, 110, 'out', function(){ tween(sp.rotation,{z:0},140); });
+        }, i*220); });
+        setTimeout(function(){ tween(sp.position, {z:2.0}, 300, 'in'); }, eis.length*220+300);
+      });
+    } else {
+      eis.forEach(function(ei,i){ setTimeout(function(){ blastAt(enemyPos(ei),'#8a6a4a',38); shockwaveAt(enemyPos(ei),'#8a6a4a'); }, i*150); });
+    }
+  },
+  GEMINI: function(sp, eis){ // the twins spin around each other, firing mirrored bolts
+    if(sp && sp.userData.twinA){
+      var tA = sp.userData.twinA, tB = sp.userData.twinB;
+      var t0 = 0;
+      var mixer = {update:function(dt){
+        t0 += dt*9;
+        tA.position.set(Math.cos(t0)*0.5, 1.2+Math.sin(t0*2)*0.15, Math.sin(t0)*0.4);
+        tB.position.set(-Math.cos(t0)*0.5, 1.2-Math.sin(t0*2)*0.15, -Math.sin(t0)*0.4);
+      }};
+      animMixers.push(mixer);
+      setTimeout(function(){ var idx = animMixers.indexOf(mixer); if(idx>=0) animMixers.splice(idx,1); }, 1300);
+    }
+    var fromA = sp ? sp.position.clone().add(new THREE.Vector3(-0.4,1.2,0)) : new THREE.Vector3(1.2,1.6,2.0);
+    var fromB = sp ? sp.position.clone().add(new THREE.Vector3(0.4,1.2,0)) : new THREE.Vector3(2.0,1.6,2.0);
+    eis.forEach(function(ei,i){ setTimeout(function(){
+      var p = enemyPos(ei);
+      launchProjectile('#48c8f8', fromA, p.clone().add(new THREE.Vector3(-0.3,0,0)), {r:0.1, dur:240});
+      launchProjectile('#f09030', fromB, p.clone().add(new THREE.Vector3(0.3,0,0)), {r:0.1, dur:240});
+      setTimeout(function(){
+        blastAt(p.clone().add(new THREE.Vector3(-0.35,0,0)),'#48c8f8',36);
+        blastAt(p.clone().add(new THREE.Vector3(0.35,0,0)),'#f868c8',36);
+        setTimeout(function(){ blastAt(p,'#c8a8f8',48); },140);
+      },260);
+    }, 300+i*180); });
+  },
+  ARIES: function(sp, eis){ // 'I'm sorry!' — soft wool bombs drift out
+    if(sp){
+      tween(sp.userData.armL.rotation, {x:-1.4}, 240, 'out');
+      tween(sp.userData.armR.rotation, {x:-1.4}, 240, 'out');
+      setTimeout(function(){ tween(sp.userData.armL.rotation,{x:0},260); tween(sp.userData.armR.rotation,{x:0},260); }, 900);
+    }
+    var from = sp ? sp.position.clone().add(new THREE.Vector3(0,1.3,-0.4)) : new THREE.Vector3(1.6,1.6,2.0);
+    eis.forEach(function(ei,i){ setTimeout(function(){
+      launchProjectile('#f8d8ec', from, enemyPos(ei), {arc:1.0, r:0.16, dur:340});
+      setTimeout(function(){
+        starsAt(enemyPos(ei),6,'#f8c8e8');
+        var puff = new THREE.Mesh(new THREE.SphereGeometry(0.4,8,7), glowMat(0xf8d8ec,0.6));
+        puff.position.copy(enemyPos(ei));
+        addVfx(puff, 0.9, function(u){ puff.scale.setScalar(1+u*1.4); puff.material.opacity = 0.6*(1-u); });
+      },360);
+    }, 280+i*160); });
+  },
+  PISCES: function(sp, eis){ // the twin serpents swoop across the enemy line
+    if(sp){
+      tween(sp.position, {z:-2.2, y:0.6}, 500, 'inout', function(){
+        tween(sp.position, {z:2.0, y:0}, 500, 'inout');
+      });
+    }
+    shakeArena(500); flashFx('ice');
+    eis.forEach(function(ei,i){ setTimeout(function(){
+      blastAt(enemyPos(ei),'#48a8d8',50);
+      pillarAt(enemyPos(ei),'#a8d8f8',90);
+    }, 420+i*150); });
+  },
+  LIBRA: function(sp, eis){ // the scales tip — gravity crushes down
+    if(sp && sp.userData.scalesArm){
+      tween(sp.userData.scalesArm.rotation, {x:-1.8}, 300, 'out');
+      setTimeout(function(){ tween(sp.userData.scalesArm.rotation, {x:0}, 300); }, 1000);
+    }
+    setTimeout(function(){
+      bigScreenFlash('rgba(160,140,220,.35)'); shakeArena(650);
+      eis.forEach(function(ei,i){ setTimeout(function(){
+        pillarAt(enemyPos(ei),'#a888d8',150); shockwaveAt(enemyPos(ei),'#a888d8'); blastAt(enemyPos(ei),'#a888d8',46);
+        // crush: enemy pressed down briefly
+        var m = enemyMeshes[ei];
+        if(m && !m.userData.busy){ tween(m.scale, {y:m.scale.y*0.7}, 160, 'in', function(){ tween(m.scale, {y:m.scale.y/0.7}, 220, 'out'); }); }
+      }, i*140); });
+    },340);
+  },
+};
+var _mythQueue = [];
+function showMythLoreQueue(names, done){
+  _mythQueue = names.filter(function(n){ return MYTH_LORE[n]; });
+  if(!_mythQueue.length){ done(); return; }
+  function next(){
+    if(!_mythQueue.length){
+      $('mythLoreOverlay').style.display = 'none';
+      done(); return;
+    }
+    var n = _mythQueue.shift();
+    var L = MYTH_LORE[n];
+    var e = null;
+    $('mythLoreTitle').textContent = '📜 '+n;
+    $('mythLoreTitle').style.color = L.color;
+    // find origin from the fallen enemy data
+    for(var i=0;i<G.enemies.length;i++){ if(G.enemies[i].name===n){ e = G.enemies[i]; break; } }
+    $('mythLoreOrigin').textContent = (e && e.origin ? e.origin.toUpperCase() : 'OLD WORLD LORE');
+    $('mythLoreText').textContent = L.text;
+    $('mythLoreBtn').textContent = _mythQueue.length ? 'NEXT ▶' : 'CONTINUE ▶';
+    $('mythLoreBtn').onclick = next;
+    $('mythLoreOverlay').style.display = 'flex';
+  }
+  next();
+}
 function rollWildSet(){
   if(Math.random()<0.12){ // a god walks the road
     return JSON.parse(JSON.stringify(KAMI_SETS[Math.floor(Math.random()*KAMI_SETS.length)]));
@@ -1772,9 +2239,18 @@ function buildBattleScene(){
   });
   // wide framing: full party line, full enemy line, and tall spell VFX all visible
   camera.fov = 60; camera.updateProjectionMatrix();
-  CAM_ORBIT.yaw = 0; CAM_ORBIT.pitch = 0.30; CAM_ORBIT.r = 19.2;
+  CAM_ORBIT.yaw = -0.55; CAM_ORBIT.pitch = 0.34; CAM_ORBIT.r = 21.5;
   applyBattleOrbit();
   camera.position.copy(camBase.pos); camera.lookAt(camBase.look);
+  var sweep = {u:0};
+  tween(sweep, {u:1}, 950, 'out');
+  animMixers.push({update:function(){
+    if(currentMode!=='battle' || sweep.u>=1) return;
+    CAM_ORBIT.yaw = -0.55*(1-sweep.u);
+    CAM_ORBIT.pitch = 0.34 - 0.04*sweep.u;
+    CAM_ORBIT.r = 21.5 - 2.3*sweep.u;
+    applyBattleOrbit();
+  }});
 }
 function heroPos(i){ return heroMeshes[i] ? heroMeshes[i].position : partySlot(i); }
 function enemyPos(i){ return enemyMeshes[i] ? enemyMeshes[i].position.clone().setY(enemyMeshes[i].position.y+1.1) : enemySlot(i, G.enemies.length); }
@@ -2856,6 +3332,18 @@ ENEMY_ANIMS['Banshee'] = function(ei, ti){
   floatStatus('🌀 KEENING WAIL','#c8d8e8',enemyPos(ei));
   setTimeout(function(){ shockwaveAt(heroPos(ti),'#c8d8e8'); blastAt(heroChest(ti),'#c8d8e8',44); },280);
 };
+ENEMY_ANIMS['Fear Gorta'] = function(ei, ti){
+  bigScreenFlash('rgba(150,150,110,.3)');
+  flashFx('magic'); floatStatus('🥀 HUNGER TOUCH','#9a9a7a',enemyPos(ei));
+  setTimeout(function(){
+    var p = heroChest(ti);
+    blastAt(p,'#9a9a7a',40);
+    // life drains back toward the spirit
+    for(var i=0;i<4;i++){
+      (function(n){ setTimeout(function(){ launchProjectile('#b8b890', heroChest(ti), enemyPos(ei), {r:0.07, dur:300}); }, n*90); })(i);
+    }
+  },260);
+};
 ENEMY_ANIMS['Gallu Demon'] = function(ei, ti){
   enemyLungeAt(ei, ti);
   flashFx('fire'); floatStatus('UNDERWORLD DRAG','#c84020',enemyPos(ei));
@@ -3052,8 +3540,8 @@ function renderStats(){
 function setCmdTitle(){
   var ch = G.party[G.activeChar];
   $('cmdTitle').textContent = ch ? ('▶ '+ch.name+"'S TURN") : '—';
-  var hasLucy = G.party.some(function(p){ return p.id==='lucy' && p.hp>0; });
-  $('btnSum').disabled = !hasLucy;
+  // Only Lucy holds the Celestial Gate keys
+  $('btnSum').disabled = !(ch && ch.id==='lucy' && ch.hp>0);
 }
 function showCmds(on){
   ['btnAtk','btnSkl','btnItm','btnSum'].forEach(function(id){ var b=$(id); if(b) b.style.opacity = on?'1':'0.3'; if(b) b.disabled = !on; });
@@ -3069,8 +3557,8 @@ function doAction(kind){
   if(kind==='skill'){ buildSkillMenu(ch); }
   if(kind==='item'){ buildItemMenu(); }
   if(kind==='summon'){
-    var lucy = G.party.find(function(p){ return p.id==='lucy'; });
-    if(!lucy || lucy.hp<=0){ showToast('Lucy must be alive to open Gates!'); return; }
+    if(ch.id!=='lucy'){ showToast('Only Lucy can open the Celestial Gates!'); return; }
+    if(ch.hp<=0){ showToast('Lucy must be alive to open Gates!'); return; }
     openSummonScreen();
   }
 }
@@ -3185,6 +3673,41 @@ async function execSkill(sk){
   }
   renderStats(); await sleep(750); await advanceTurn();
 }
+function summonSpiritAttack(spirit, eis){
+  return new Promise(function(resolve){
+    var spawn = new THREE.Vector3(1.7, 0, 2.1);
+    portalAt(spawn.clone().setY(1.1), spirit.color||'#a060ff', 64);
+    var mesh = null;
+    try{ mesh = SPIRIT_BUILDERS[spirit.name] ? SPIRIT_BUILDERS[spirit.name]() : null; }catch(e){}
+    if(mesh){
+      mesh.position.copy(spawn);
+      mesh.rotation.y = Math.PI; // face the enemies
+      mesh.scale.setScalar(0.12);
+      scene.add(mesh);
+      tween(mesh.scale, {x:1,y:1,z:1}, 380, 'out');
+      if(mesh.userData.floaty){
+        var fb = {update:function(){ if(mesh.parent && !mesh.userData._attacking) mesh.position.y = Math.max(mesh.position.y, 0) ; }};
+        // gentle hover shimmer
+        starsAt(spawn.clone().setY(1.4), 4, spirit.color||'#f8e8a0');
+      }
+    }
+    setTimeout(function(){
+      var sig = SPIRIT_ANIMS[spirit.name];
+      if(sig){ try{ sig(mesh, eis); }catch(e){} }
+      else { eis.forEach(function(ei,i){ setTimeout(function(){ blastAt(enemyPos(ei), spirit.color||'#a060ff', 44); }, i*130); }); }
+    }, 460);
+    setTimeout(function(){
+      if(mesh && mesh.parent){
+        portalAt(mesh.position.clone().setY(1.1), spirit.color||'#a060ff', 50);
+        tween(mesh.scale, {x:0.02,y:0.02,z:0.02}, 280, 'in', function(){
+          if(mesh.parent) mesh.parent.remove(mesh);
+          disposeMesh(mesh);
+        });
+      }
+      resolve();
+    }, 2050);
+  });
+}
 async function execSummon(spirit){
   G.phase = 'animating';
   var lucy = G.party.find(function(p){ return p.id==='lucy'; });
@@ -3208,11 +3731,8 @@ async function execSummon(spirit){
   } else {
     var total = 0;
     var livingEnemies = G.enemies.filter(function(e){ return e.hp>0; });
-    livingEnemies.forEach(function(e,idx){
-      var ei = G.enemies.indexOf(e);
-      setTimeout(function(){ portalAt(enemyPos(ei), spirit.color||'#a060ff', 44); }, idx*140);
-    });
-    await sleep(livingEnemies.length*140 + 200);
+    var eis = livingEnemies.map(function(e){ return G.enemies.indexOf(e); });
+    await summonSpiritAttack(spirit, eis);
     livingEnemies.forEach(function(e){
       var ei = G.enemies.indexOf(e);
       var dmg = Math.floor(atk.dmgR[0]+Math.random()*(atk.dmgR[1]-atk.dmgR[0]));
@@ -3357,6 +3877,21 @@ function checkVictory(){
   var gold = G.enemies.reduce(function(s,e){ return s+e.gold; },0);
   G.gold = (G.gold||0)+gold; G.totalExp = (G.totalExp||0)+exp;
   var defeatedBoss = G.enemies.find(function(e){ return e.boss; });
+  // celebration: the living leap for joy
+  G.party.forEach(function(ch,i){
+    if(ch.hp<=0 || !heroMeshes[i]) return;
+    (function(m,n){ setTimeout(function(){
+      m.userData.busy = true;
+      tween(m.position, {y:m.userData.home.y+0.8}, 240, 'out', function(){
+        tween(m.position, {y:m.userData.home.y}, 260, 'in', function(){ m.userData.busy = false; });
+      });
+      if(m.userData.armL){ tween(m.userData.armL.rotation, {x:-2.6}, 220, 'out'); tween(m.userData.armR.rotation, {x:-2.6}, 220, 'out'); }
+      setTimeout(function(){
+        if(m.userData.armL){ tween(m.userData.armL.rotation, {x:0}, 300); tween(m.userData.armR.rotation, {x:0}, 300); }
+      }, 420);
+      starsAt(m.position.clone().setY(2.2), 4, '#f8c840');
+    }, n*110); })(heroMeshes[i], i);
+  });
   setTimeout(function(){
     var vt = $('victoryText'), et = $('expText'), btn = $('victoryBtn');
     if(defeatedBoss && defeatedBoss.final){
@@ -3370,10 +3905,14 @@ function checkVictory(){
       btn.textContent = '✦ FREE THE TOWN ▶';
       btn.onclick = function(){ $('victoryBanner').classList.remove('show'); triggerLiberation(defeatedBoss.townLiberated); };
     } else {
+      var mythNames = [];
+      G.enemies.forEach(function(e){ if(e.origin && mythNames.indexOf(e.name)<0) mythNames.push(e.name); });
       vt.innerHTML = '✦ VICTORY ✦'; vt.style.color = '#f8c840';
-      et.innerHTML = '<div>EXP: +'+exp+' (Total: '+G.totalExp+')</div><div>GOLD: +'+gold+'G (Have: '+G.gold+'G)</div><div>&nbsp;</div><div>All foes vanquished!</div>';
-      btn.textContent = 'CONTINUE ▶';
-      btn.onclick = postBattleReturn;
+      et.innerHTML = '<div>EXP: +'+exp+' (Total: '+G.totalExp+')</div><div>GOLD: +'+gold+'G (Have: '+G.gold+'G)</div><div>&nbsp;</div><div>'+(mythNames.length?'The old story reveals itself...':'All foes vanquished!')+'</div>';
+      btn.textContent = mythNames.length ? '📜 THE LEGEND ▶' : 'CONTINUE ▶';
+      btn.onclick = mythNames.length
+        ? function(){ $('victoryBanner').classList.remove('show'); showMythLoreQueue(mythNames, postBattleReturn); }
+        : postBattleReturn;
     }
     $('victoryBanner').classList.add('show');
     saveGame();

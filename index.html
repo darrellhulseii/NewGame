@@ -107,7 +107,7 @@ button{font-family:'Press Start 2P',monospace;cursor:pointer;}
 .bar-fill{height:100%;transition:width .35s;}
 .hp-fill{background:var(--hp-g);} .hp-mid{background:var(--hp-y);} .hp-low{background:var(--hp-r);} .mp-fill{background:var(--mp);}
 #cmdTitle{font-size:6px;color:var(--cyan);margin:2px 0 6px;text-align:center;}
-#cmdRow{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
+#cmdRow{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;}
 .cmd-btn{padding:12px 2px;font-size:6px;color:var(--white);background:var(--bg-panel);border:3px solid var(--border);line-height:1.7;}
 .cmd-btn:disabled{opacity:.3;}
 #skillList{display:none;max-height:170px;overflow-y:auto;margin-top:6px;}
@@ -244,9 +244,20 @@ button{font-family:'Press Start 2P',monospace;cursor:pointer;}
       <button class="cmd-btn" id="btnSkl" onclick="doAction('skill')">✨<br>SKILL</button>
       <button class="cmd-btn" id="btnItm" onclick="doAction('item')">🎒<br>ITEM</button>
       <button class="cmd-btn" id="btnSum" onclick="doAction('summon')">🌌<br>SUMMON</button>
+      <button class="cmd-btn" id="btnFlee" onclick="doAction('flee')">🏃<br>FLEE</button>
     </div>
     <div id="skillList"></div>
     <div id="backRow"><button onclick="backToCommands()">◀ BACK</button></div>
+  </div>
+</div>
+
+<div class="screen" id="cutscene-screen">
+  <div style="margin-top:auto;pointer-events:auto;">
+    <div class="panel" style="border-left:none;border-right:none;border-bottom:none;padding:12px 12px calc(env(safe-area-inset-bottom,0px) + 12px);">
+      <div id="csTitle" style="font-size:9px;color:var(--gold);text-shadow:0 0 10px var(--gold);margin-bottom:8px;line-height:1.8;"></div>
+      <div id="csCaption" style="font-size:6px;color:var(--white);line-height:2.2;min-height:60px;"></div>
+      <button id="csNext" class="continue-btn" style="width:100%;margin-top:10px;">NEXT ▶</button>
+    </div>
   </div>
 </div>
 
@@ -305,13 +316,20 @@ var G = {
   turn:1, activeChar:0, phase:'player',
   enemies:[], party:[], battleNum:0,
   gold:350, totalExp:0,
-  items:{ potion:4, ether:2, tent:1 },
+  items:{ potion:4, ether:2, tent:1, revive:1 },
   currentLocation:'heiter_village',
   prevScreen:'world-screen',
   exploreSteps:0, exploreDanger:0, exploreArea:null,
   _partySelection:null,
 };
 var G_STORY = { liberatedTowns:{}, bossesDefeated:0, storyComplete:false };
+G.trophies = {};
+var KAMI_TROPHIES = {
+  RAIJIN:  {key:'raijin',  name:"Raijin's Thunder Drum",  icon:'🥁', desc:'All party damage +8%'},
+  FUJIN:   {key:'fujin',   name:"Fujin's Wind Bag",       icon:'🌬', desc:'Fleeing never fails'},
+  RYUJIN:  {key:'ryujin',  name:"Ryujin's Tide Jewel",    icon:'🔵', desc:'Party heals 15% HP after every victory'},
+  SUSANOO: {key:'susanoo', name:"Susanoo's Kusanagi Shard", icon:'🗡', desc:'Basic attacks can CRIT for double damage'},
+};
 
 // ══════ DATA (ported verbatim from the 2D classic) ══════
 const CHARS = [
@@ -478,7 +496,7 @@ const ENEMY_SETS = [
   [{name:'Chrono Warden',      hp:420,maxHp:420,atk:98, def:78,exp:340,gold:220,color:'#f8c840',meshKey:'ChronoWarden'},
    {name:'Fate Binder',        hp:350,maxHp:350,atk:82, def:65,exp:275,gold:175,color:'#d0a030',meshKey:'Serie'}],
   // 10 — FINAL BOSS: TIME LORD MAGIUS THE WISE → defeated = MAGIUS THE FOOL
-  [{name:'TIME LORD MAGIUS',   hp:30000,maxHp:30000,atk:210,def:150,exp:2000,gold:1500,color:'#f8c020',boss:true,final:true,
+  [{name:'TIME LORD MAGIUS',   hp:5000,maxHp:5000,atk:210,def:150,exp:2000,gold:1500,color:'#f8c020',boss:true,final:true,
     lore:'He made himself a God of time. All roads led to his selfish throne. "I am wisdom, love, charity — I am everything."',
     townLiberated:'all',meshKey:'Magius'}],
 ];
@@ -611,10 +629,21 @@ const LOCATIONS = {
 };
 
 const SHOP_CATALOG = {
-  potion: { name:'Ether Potion', icon:'🧪', desc:'Heal 80-140 HP to weakest ally', price:40 },
-  ether:  { name:'Mana Ether',   icon:'💎', desc:'Restore 60 MP to most depleted', price:60 },
-  tent:   { name:'Camping Tent', icon:'⛺', desc:'Field rest — restore 40% HP/MP', price:80 },
+  potion: { name:'HP Potion',    icon:'🧪', desc:'Heal 80-140 HP to weakest ally', price:75 },
+  ether:  { name:'Mana Potion',  icon:'💎', desc:'Restore 60 MP to most depleted', price:80 },
+  tent:   { name:'Camping Tent', icon:'⛺', desc:'Field rest — restore 40% HP/MP', price:250 },
+  revive: { name:'Revive Alive', icon:'✨', desc:'Bring a fallen ally back at 80% HP', price:150 },
 };
+// mana potion prices drift village to village
+const ETHER_PRICES = {
+  heiter_village:75, scholars_path:80, scholars_quarter:85, shadow_wood:90,
+  harbor_city:80, merchant_road:70, merchant_haven:65, mountain_pass:95,
+  eternal_garden:85, clock_tower:90,
+};
+function priceOf(key, townKey){
+  if(key==='ether') return ETHER_PRICES[townKey] || SHOP_CATALOG.ether.price;
+  return SHOP_CATALOG[key].price;
+}
 
 const STORY_PAGES = [
   { title:"THE TRAP OF TIME",
@@ -670,6 +699,28 @@ var EL = {
   heal:{col:'#48f878'}, physical:{col:'#e8e8f8'},
 };
 function elOf(el){ return EL[el] || EL.magic; }
+
+// ══════ LEVEL SYSTEM ══════
+function expToNext(level){ return Math.floor(90 * Math.pow(level, 1.35)); }
+function gainExp(ch, amount){
+  if(ch.level===undefined){ ch.level = 1; ch.exp = 0; }
+  ch.exp += amount;
+  var ups = 0;
+  while(ch.exp >= expToNext(ch.level)){
+    ch.exp -= expToNext(ch.level);
+    ch.level++; ups++;
+    // stat growth — tanks grow tougher, casters sharper
+    var hpUp  = Math.floor(ch.maxHp*0.08)+6;
+    var mpUp  = Math.floor(ch.maxMp*0.06)+3;
+    ch.maxHp += hpUp; ch.hp = Math.min(ch.maxHp, ch.hp+hpUp);
+    ch.maxMp += mpUp; ch.mp = Math.min(ch.maxMp, ch.mp+mpUp);
+    ch.atk += Math.max(1, Math.floor(ch.atk*0.045));
+    ch.mag += Math.max(1, Math.floor(ch.mag*0.045));
+    ch.def += Math.max(1, Math.floor(ch.def*0.04));
+    ch.spd += (ch.level%2===0 ? 1 : 0);
+  }
+  return ups;
+}
 
 // ══════ WILD MYTHS — road encounters from four old worlds ══════
 // Mesopotamian myth, Irish folklore, Japanese folklore, Shinto kami
@@ -3531,7 +3582,7 @@ function renderStats(){
     var hpP = Math.max(0, ch.hp/ch.maxHp*100);
     var hpCls = hpP<25 ? 'hp-low' : hpP<50 ? 'hp-mid' : 'hp-fill';
     var nameCls = ch.hp<=0 ? 'dead' : (i===G.activeChar && G.phase==='player' ? 'turn' : '');
-    d.innerHTML = '<div class="st-name '+nameCls+'"><span>'+ch.name+(ch.parryStacks?' 🛡':'')+'</span><span>'+Math.max(0,ch.hp)+'</span></div>'+
+    d.innerHTML = '<div class="st-name '+nameCls+'"><span>'+ch.name+' L'+(ch.level||1)+(ch.parryStacks?' 🛡':'')+'</span><span>'+Math.max(0,ch.hp)+'</span></div>'+
       '<div class="bar-track"><div class="bar-fill '+hpCls+'" style="width:'+hpP+'%"></div></div>'+
       '<div class="bar-track"><div class="bar-fill mp-fill" style="width:'+Math.max(0,ch.mp/ch.maxMp*100)+'%"></div></div>';
     g.appendChild(d);
@@ -3542,9 +3593,11 @@ function setCmdTitle(){
   $('cmdTitle').textContent = ch ? ('▶ '+ch.name+"'S TURN") : '—';
   // Only Lucy holds the Celestial Gate keys
   $('btnSum').disabled = !(ch && ch.id==='lucy' && ch.hp>0);
+  var boss = G.enemies.find(function(e){ return e.boss; });
+  $('btnFlee').disabled = !!boss;
 }
 function showCmds(on){
-  ['btnAtk','btnSkl','btnItm','btnSum'].forEach(function(id){ var b=$(id); if(b) b.style.opacity = on?'1':'0.3'; if(b) b.disabled = !on; });
+  ['btnAtk','btnSkl','btnItm','btnSum','btnFlee'].forEach(function(id){ var b=$(id); if(b) b.style.opacity = on?'1':'0.3'; if(b) b.disabled = !on; });
   if(on){ setCmdTitle(); renderStats(); }
 }
 function hideSubMenus(){ $('skillList').classList.remove('open'); $('skillList').innerHTML=''; $('backRow').style.display='none'; }
@@ -3556,10 +3609,37 @@ function doAction(kind){
   if(kind==='attack'){ hideSubMenus(); execAttack(); }
   if(kind==='skill'){ buildSkillMenu(ch); }
   if(kind==='item'){ buildItemMenu(); }
+  if(kind==='flee'){ doFlee(); return; }
   if(kind==='summon'){
     if(ch.id!=='lucy'){ showToast('Only Lucy can open the Celestial Gates!'); return; }
     if(ch.hp<=0){ showToast('Lucy must be alive to open Gates!'); return; }
     openSummonScreen();
+  }
+}
+async function doFlee(){
+  var boss = G.enemies.find(function(e){ return e.boss; });
+  if(boss){ showToast("Can't flee from this battle!"); return; }
+  G.phase = 'animating'; showCmds(false); hideSubMenus();
+  var avgSpd = G.party.reduce(function(s,p){ return s+(p.spd||50); },0)/G.party.length;
+  var chance = (G.trophies && G.trophies.fujin) ? 1 : Math.min(0.9, 0.5 + avgSpd/400);
+  setMsg('The party turns to run...');
+  await sleep(500);
+  if(Math.random() < chance){
+    if(G.trophies && G.trophies.fujin) floatStatus("🌬 FUJIN'S WIND!",'#48c8a8');
+    setMsg('Got away safely!');
+    heroMeshes.forEach(function(m,i){
+      if(G.party[i] && G.party[i].hp>0){ m.userData.busy = true; tween(m.position, {z:m.position.z+4}, 500, 'in'); }
+    });
+    bigScreenFlash('rgba(120,200,160,.25)');
+    await sleep(650);
+    G.phase = 'idle';
+    if(G.prevScreen==='explore-screen'){ enterExplore(true); }
+    else if(G.prevScreen==='world-screen'){ enterWorld(); }
+    else { enterTown(G.currentLocation); }
+  } else {
+    setMsg("Couldn't escape! The enemy blocks the way!");
+    await sleep(650);
+    await enemyTurn();
   }
 }
 function buildSkillMenu(ch){
@@ -3578,6 +3658,7 @@ function buildItemMenu(){
   var list = $('skillList'); list.innerHTML = '';
   var defs = [
     {k:'potion', use:usePotion}, {k:'ether', use:useEther}, {k:'tent', use:useTent},
+    {k:'revive', use:useRevive},
   ];
   defs.forEach(function(d){
     var it = SHOP_CATALOG[d.k]; var n = G.items[d.k]||0;
@@ -3599,8 +3680,11 @@ async function execAttack(){
   setMsg(ch.name+' attacks '+target.name+'!');
   await playFullAttackSequence(ch, G.activeChar, ti);
   var dmg = Math.max(1, Math.floor(ch.atk*(0.8+Math.random()*.42)) - Math.floor(target.def*0.3));
+  if(G.trophies.raijin) dmg = Math.floor(dmg*1.08);
+  var crit = G.trophies.susanoo && Math.random()<0.2;
+  if(crit){ dmg *= 2; floatStatus('⚡ CRITICAL!','#f8e040',enemyPos(ti).clone().setY(2.6)); shakeArena(300); }
   target.hp = Math.max(0, target.hp-dmg);
-  popDmg(dmg, '#e8e8f8', enemyPos(ti));
+  popDmg(dmg, crit?'#f8e040':'#e8e8f8', enemyPos(ti));
   hitEnemy3D(ti);
   if(target.hp<=0) setTimeout(function(){ koEnemy(ti); },300);
   await sleep(300);
@@ -3663,6 +3747,7 @@ async function execSkill(sk){
       var ei = G.enemies.indexOf(e);
       var rawDmg = sk.dmgR[0]+Math.random()*(sk.dmgR[1]-sk.dmgR[0]);
       var dmg = Math.max(1, Math.floor(rawDmg + statScale*0.22) - Math.floor((e.def||0)*0.25));
+      if(G.trophies.raijin) dmg = Math.floor(dmg*1.08);
       e.hp = Math.max(0, e.hp-dmg); total += dmg;
       popDmg(dmg, info.col, enemyPos(ei));
       hitEnemy3D(ei, info.col);
@@ -3773,6 +3858,26 @@ async function useEther(){
   }
   renderStats(); await sleep(900); await advanceTurn();
 }
+async function useRevive(){
+  var target = G.party.find(function(p){ return p.hp<=0; });
+  if(!target){ showToast('No fallen allies to revive!'); backToCommands(); return; }
+  G.phase='animating'; showCmds(false); G.items.revive--;
+  var ti = G.party.indexOf(target);
+  target.hp = Math.floor(target.maxHp*0.8);
+  target.status = null;
+  var m = heroMeshes[ti];
+  if(m){
+    portalAt(m.position.clone().setY(1.2), '#f8e8a0', 60);
+    tween(m.rotation, {x:0}, 400, 'out');
+    tween(m.position, {y:m.userData.home ? m.userData.home.y : 0}, 400, 'out', function(){ m.userData.busy = false; });
+    healGlowPose(ti, 800);
+  }
+  flashFx('heal');
+  popDmg(target.hp, '#48f878', heroChest(ti));
+  floatStatus('✨ REVIVED!','#f8e8a0',heroChest(ti).clone().setY(2.4));
+  setMsg('Revive Alive! '+target.name+' returns to the fight at 80% HP!');
+  renderStats(); await sleep(1000); await advanceTurn();
+}
 async function useTent(){
   G.phase='animating'; showCmds(false); G.items.tent--;
   flashFx('heal');
@@ -3876,6 +3981,35 @@ function checkVictory(){
   var exp  = G.enemies.reduce(function(s,e){ return s+e.exp; },0);
   var gold = G.enemies.reduce(function(s,e){ return s+e.gold; },0);
   G.gold = (G.gold||0)+gold; G.totalExp = (G.totalExp||0)+exp;
+  var lvlLines = '';
+  // kami trophies — a relic from each fallen god, once
+  G.enemies.forEach(function(e){
+    var tr = KAMI_TROPHIES[e.name];
+    if(tr && !G.trophies[tr.key]){
+      G.trophies[tr.key] = true;
+      lvlLines += '<div style="color:var(--gold)">🏆 TROPHY: '+tr.name+'!<br><span style="font-size:5px;color:var(--gray)">'+tr.desc+'</span></div>';
+      bigScreenFlash('rgba(248,200,64,.35)');
+    }
+  });
+  // Ryujin's Tide Jewel: the sea mends the party after battle
+  if(G.trophies.ryujin){
+    G.party.forEach(function(ch,i){
+      if(ch.hp>0){
+        ch.hp = Math.min(ch.maxHp, ch.hp+Math.floor(ch.maxHp*0.15));
+        if(heroMeshes[i]) healGlowPose(i, 700);
+      }
+    });
+  }
+  G.party.forEach(function(ch){
+    if(ch.hp>0){
+      var ups = gainExp(ch, exp);
+      if(ups>0){
+        lvlLines += '<div style="color:var(--cyan)">⬆ '+ch.name+' reached Lv.'+ch.level+'!</div>';
+        var mi = G.party.indexOf(ch);
+        if(heroMeshes[mi]){ pillarAt(heroPos(mi),'#48d8f8',110); floatStatus('LEVEL UP!','#48d8f8',heroPos(mi).clone().setY(2.4)); }
+      }
+    }
+  });
   var defeatedBoss = G.enemies.find(function(e){ return e.boss; });
   // celebration: the living leap for joy
   G.party.forEach(function(ch,i){
@@ -3896,19 +4030,19 @@ function checkVictory(){
     var vt = $('victoryText'), et = $('expText'), btn = $('victoryBtn');
     if(defeatedBoss && defeatedBoss.final){
       vt.innerHTML = '✦ TIME LORD DEFEATED ✦'; vt.style.color = defeatedBoss.color;
-      et.innerHTML = '<div>EXP: +'+exp+'</div><div>GOLD: +'+gold+'G</div><div>&nbsp;</div><div style="color:var(--green)">THE WORLD IS FREED!</div>';
+      et.innerHTML = '<div>EXP: +'+exp+'</div><div>GOLD: +'+gold+'G</div>'+lvlLines+'<div>&nbsp;</div><div style="color:var(--green)">THE WORLD IS FREED!</div>';
       btn.textContent = '✦ SEE THE TRUTH ▶';
       btn.onclick = function(){ $('victoryBanner').classList.remove('show'); triggerLiberation('all'); };
     } else if(defeatedBoss && defeatedBoss.townLiberated){
       vt.innerHTML = '✦ BOSS DEFEATED ✦'; vt.style.color = defeatedBoss.color;
-      et.innerHTML = '<div>EXP: +'+exp+' (Total: '+G.totalExp+')</div><div>GOLD: +'+gold+'G (Have: '+G.gold+'G)</div><div>&nbsp;</div><div style="color:var(--green)">A TOWN IS LIBERATED!</div>';
+      et.innerHTML = '<div>EXP: +'+exp+' (Total: '+G.totalExp+')</div><div>GOLD: +'+gold+'G (Have: '+G.gold+'G)</div>'+lvlLines+'<div>&nbsp;</div><div style="color:var(--green)">A TOWN IS LIBERATED!</div>';
       btn.textContent = '✦ FREE THE TOWN ▶';
       btn.onclick = function(){ $('victoryBanner').classList.remove('show'); triggerLiberation(defeatedBoss.townLiberated); };
     } else {
       var mythNames = [];
       G.enemies.forEach(function(e){ if(e.origin && mythNames.indexOf(e.name)<0) mythNames.push(e.name); });
       vt.innerHTML = '✦ VICTORY ✦'; vt.style.color = '#f8c840';
-      et.innerHTML = '<div>EXP: +'+exp+' (Total: '+G.totalExp+')</div><div>GOLD: +'+gold+'G (Have: '+G.gold+'G)</div><div>&nbsp;</div><div>'+(mythNames.length?'The old story reveals itself...':'All foes vanquished!')+'</div>';
+      et.innerHTML = '<div>EXP: +'+exp+' (Total: '+G.totalExp+')</div><div>GOLD: +'+gold+'G (Have: '+G.gold+'G)</div>'+lvlLines+'<div>&nbsp;</div><div>'+(mythNames.length?'The old story reveals itself...':'All foes vanquished!')+'</div>';
       btn.textContent = mythNames.length ? '📜 THE LEGEND ▶' : 'CONTINUE ▶';
       btn.onclick = mythNames.length
         ? function(){ $('victoryBanner').classList.remove('show'); showMythLoreQueue(mythNames, postBattleReturn); }
@@ -4020,6 +4154,7 @@ function confirmParty(){
   G.party = _csSelected.map(function(i){
     var ch = JSON.parse(JSON.stringify(CHARS[i]));
     ch.hp = ch.maxHp; ch.mp = ch.maxMp; ch.buffs = {}; ch.parryStacks = ch.parryStacks||0;
+    ch.level = 1; ch.exp = 0;
     return ch;
   });
   enterWorld();
@@ -4038,7 +4173,8 @@ function renderWorldHUD(){
   var L = LOCATIONS[G.currentLocation];
   $('worldChipLoc').innerHTML = L.icon+' '+L.name;
   $('worldGold').textContent = G.gold+'G';
-  $('worldBosses').textContent = G_STORY.bossesDefeated+'/5 FREED';
+  var trN = Object.keys(G.trophies||{}).length;
+  $('worldBosses').textContent = G_STORY.bossesDefeated+'/5 FREED'+(trN?' · 🏆'+trN:'');
   $('travelRow').innerHTML = '';
   _nearTown = undefined; // force proximity refresh
   var f = $('worldDangerFill'); if(f) f.style.width = (G.worldDanger||0)+'%';
@@ -4125,16 +4261,18 @@ function openShop(key){
   var box2 = $('shopItems'); box2.innerHTML = '';
   var uniq = [];
   (L.shopItems||[]).forEach(function(k){ if(uniq.indexOf(k)<0) uniq.push(k); });
+  if(uniq.indexOf('revive')<0) uniq.push('revive');
   uniq.forEach(function(k){
     var it = SHOP_CATALOG[k];
     var d = document.createElement('div');
     d.className = 'shop-item';
     d.innerHTML = '<div>'+it.icon+' '+it.name+' <span style="color:var(--gray)">x'+(G.items[k]||0)+'</span><br><span style="font-size:5px;color:var(--gray)">'+it.desc+'</span></div>';
+    var price = priceOf(k, key);
     var b = document.createElement('button');
-    b.className = 'shop-buy'; b.textContent = it.price+'G';
+    b.className = 'shop-buy'; b.textContent = price+'G';
     b.onclick = function(){
-      if(G.gold < it.price){ showToast('Not enough gold!'); return; }
-      G.gold -= it.price; G.items[k] = (G.items[k]||0)+1;
+      if(G.gold < price){ showToast('Not enough gold!'); return; }
+      G.gold -= price; G.items[k] = (G.items[k]||0)+1;
       $('shopGold').textContent = G.gold+'G';
       d.querySelector('span').textContent = 'x'+G.items[k];
       showToast('Bought '+it.name+'!');
@@ -4238,14 +4376,232 @@ function triggerLiberation(townKey){
     $('libOverlay').classList.remove('show');
     saveGame();
     if(townKey==='all'){
-      showToast('MAGIUS THE WISE... IS MAGIUS THE FOOL. THE END.');
-      enterWorld();
+      playEndingCutscene(function(){
+        saveGame();
+        showScreen('title-screen');
+        buildTitleScene();
+        showToast('MAGIUS THE WISE... IS MAGIUS THE FOOL.');
+        try{ $('loadBtn').style.display = 'block'; }catch(e){}
+      });
     } else {
       enterTown(G.currentLocation);
     }
   };
   $('libOverlay').classList.add('show');
   saveGame();
+}
+
+
+// ══════════════════════════════════════════════════════════
+//  ENDING CUTSCENE — every hero returns to their own world,
+//  where the people who missed them are gathered, waiting.
+// ══════════════════════════════════════════════════════════
+function tinyCat(c){ // Happy
+  var g = new THREE.Group();
+  var body = sph(0.22, c); body.position.y = 0.4; g.add(body);
+  var head = sph(0.18, c); head.position.y = 0.68; g.add(head);
+  var eL = sph(0.03, 0x181818); eL.position.set(-0.06,0.7,0.16); g.add(eL);
+  var eR = eL.clone(); eR.position.x = 0.06; g.add(eR);
+  var earA = cone(0.05,0.12, c, 5); earA.position.set(-0.09,0.85,0); g.add(earA);
+  var earB = earA.clone(); earB.position.x = 0.09; g.add(earB);
+  var wL = box(0.22,0.14,0.02, 0xf8f8f8, {ds:true}); wL.position.set(-0.24,0.5,-0.08); wL.rotation.y = 0.5; g.add(wL);
+  var wR = wL.clone(); wR.position.x = 0.24; wR.rotation.y = -0.5; g.add(wR);
+  var tail = cyl(0.03,0.01,0.35, c); tail.position.set(0,0.35,-0.25); tail.rotation.x = 1.0; g.add(tail);
+  g.userData = {armL:wL, armR:wR, head:head, torso:body};
+  return g;
+}
+var ENDING_WORLDS = [
+  { heroes:['frieren'], title:"FRIEREN'S WORLD", theme:'meadow',
+    caption:"The rift closes behind Frieren. In a field of flowers where the hero party once camped — Fern and Stark have been waiting all along. \"You're late,\" Fern says. Frieren smiles. \"Only by a little.\"",
+    greeters:[
+      {name:'FERN',  look:{hairStyle:'sidetail', hair:0x7a58b8, top:0xf0eef8, bottom:0x483878, boots:0x282848, eye:0x6a48a8}},
+      {name:'STARK', look:{hairStyle:'spiky', hair:0x8a4a30, top:0x5a4030, bottom:0x3a2c20, boots:0x241a10, weapon:'sword', eye:0x486848}},
+    ]},
+  { heroes:['lucy','gajeel','laxus'], title:'EARTHLAND — THE FAIRY TAIL GUILD', theme:'guild',
+    caption:"The guild hall doors burst open. Natsu is already shouting, Erza is already crying, Gray pretends he isn't. Levy runs straight past everyone to Gajeel. The whole guild has been waiting — and tonight, Fairy Tail celebrates.",
+    greeters:[
+      {name:'NATSU', look:{hairStyle:'spiky', hair:0xf088a8, top:0x2a2a34, bottom:0xf8f0e0, boots:0x2a2a34, chest:0xf8f8f0, eye:0x304828}},
+      {name:'ERZA',  look:{hairStyle:'sidetail', hair:0xd83048, top:0xb8bcd0, bottom:0x2848a8, boots:0x282838, eye:0x6a3828}},
+      {name:'GRAY',  look:{hairStyle:'slick', hair:0x28303e, top:0x30425a, bottom:0x1e2836, boots:0x141c26, eye:0x304050}},
+      {name:'LEVY',  look:{hairStyle:'twintails', hair:0x4898d8, top:0xf8a838, bottom:0xf8f0e0, boots:0x8a5a2a, eye:0x6a4828}},
+      {name:'HAPPY', cat:0x48a8e8},
+    ]},
+  { heroes:['strange','nightcrawler','miles','silver'], title:'EARTH-616 — NEW YORK CITY', theme:'city',
+    caption:"A sling-ring portal opens over a Manhattan rooftop. Wong just nods — 'You're buying lunch.' Wolverine grunts something that almost sounds glad. Gwen tackles Miles before his feet touch the ground. Even the stars seem brighter — the ones who left have come home.",
+    greeters:[
+      {name:'WONG',      look:{hairStyle:'none', skin:0xe8c8a0, top:0x304a48, bottom:0x203432, boots:0x141f1e, eye:0x282828}},
+      {name:'WOLVERINE', look:{hat:'cowl', hatC:0xf8d020, skin:0xf0d0b0, top:0xf8d020, bottom:0x2848a8, boots:0xf8d020, eye:0x181818, glove:0xf8d020}},
+      {name:'GWEN',      look:{hat:'cowl', hatC:0xf0f0f8, skin:0xf0f0f8, mask:0xf0f0f8, top:0xf0f0f8, bottom:0x181824, boots:0x48c8e8, eye:0xe858a8, glove:0xf0f0f8}},
+      {name:'STORM',     look:{hairStyle:'slick', hair:0xf0f0f8, skin:0x8a5a3a, top:0x181824, bottom:0x181824, boots:0xc8a030, cape:0x181824, eye:0xe8e8f8}},
+    ]},
+  { heroes:['plasticman','zatanna','mrmiracle'], title:'DC UNIVERSE — THE WATCHTOWER', theme:'tower',
+    caption:"The Watchtower's boom tube flares gold. Superman is smiling before it even opens. Batman says nothing, which from him is a hug. And Big Barda crosses the deck in three strides to lift Mister Miracle clean off the floor. No trap ever built could hold them.",
+    greeters:[
+      {name:'SUPERMAN',     look:{hairStyle:'slick', hair:0x181828, top:0x2848c8, bottom:0x2848c8, boots:0xc82030, cape:0xc82030, chest:0xc82030, eye:0x3858c8}},
+      {name:'BATMAN',       look:{hat:'cowl', hatC:0x2a2a38, skin:0xe8c8a8, top:0x3a3a4a, bottom:0x2a2a38, boots:0x1a1a24, cape:0x1a1a24, chest:0xf8d020, eye:0xf8f8f8}},
+      {name:'WONDER WOMAN', look:{hairStyle:'sidetail', hair:0x181820, top:0xc82030, bottom:0x2848a8, boots:0xc82030, chest:0xf8c840, eye:0x3858a8}},
+      {name:'BIG BARDA',    look:{hat:'cowl', hatC:0x2838a8, skin:0xf0c8a0, top:0x2838a8, bottom:0x1a2878, boots:0xf8c840, cape:0xc82030, chest:0xf8c840, eye:0x283878}},
+    ]},
+  { heroes:['gandalf'], title:'MIDDLE-EARTH — THE SHIRE', theme:'shire',
+    caption:"Fireworks over Hobbiton. Frodo saw the grey hat on the road a mile off and has not stopped running since. Aragorn bows his head; Legolas simply smiles. \"A wizard is never late,\" Gandalf laughs, \"but I confess — this once, I hurried.\"",
+    greeters:[
+      {name:'FRODO',   scale:0.72, look:{hairStyle:'spiky', hair:0x4a3420, top:0x3a5a34, bottom:0x5a452e, boots:0x3a2c1c, eye:0x3858a8}},
+      {name:'ARAGORN', look:{hairStyle:'slick', hair:0x2a221a, beard:0x2a221a, top:0x2e2a26, bottom:0x201c18, boots:0x14100c, cape:0x3a342c, weapon:'sword', eye:0x40506a}},
+      {name:'LEGOLAS', look:{hairStyle:'slick', hair:0xf0e0a8, top:0x4a5a3c, bottom:0x38462e, boots:0x2a3422, eye:0x4878b8}},
+    ]},
+  { heroes:['noel'], title:"NOEL'S HOMELAND", theme:'village',
+    caption:"Smoke from the chimneys of home. The whole village is out at the gate — the smith, the innkeeper, the children who used to steal apples from his cart. Noel plants his shield in the earth. Some heroes save worlds. He just wanted to get back to his.",
+    greeters:[
+      {name:'THE SMITH',     look:{hairStyle:'none', beard:0x4a3a28, skin:0xe0b088, top:0x5a4a38, bottom:0x3a3028, boots:0x241c14, eye:0x3a3028}},
+      {name:'THE INNKEEPER', look:{hairStyle:'slick', hair:0x8a7a5a, top:0x7a5838, bottom:0x4a3a28, boots:0x2a2018, eye:0x4a3828}},
+      {name:'THE KIDS',      scale:0.65, look:{hairStyle:'spiky', hair:0x6a4a28, top:0x7a8a5a, bottom:0x5a4a38, boots:0x3a2c1c, eye:0x3a4828}},
+    ]},
+];
+function buildEndingScene(world){
+  clearScene(); resetFov(); currentMode = 'cutscene';
+  var themes = {
+    meadow: {sky:0x24386a, gnd:0x2a5a34},
+    guild:  {sky:0x2a1c3a, gnd:0x4a3a28},
+    city:   {sky:0x10142e, gnd:0x22242e},
+    tower:  {sky:0x080a1c, gnd:0x2a2e42},
+    shire:  {sky:0x2a4a7a, gnd:0x3a6a34},
+    village:{sky:0x3a2c50, gnd:0x3a5a30},
+  };
+  var th = themes[world.theme] || themes.meadow;
+  skyDome(th.sky, th.sky); starField(250, 160, 8);
+  baseLights(0.75, 1.0, 0xd8c8a8);
+  scene.add(groundPlane(th.gnd, 240));
+  if(world.theme==='meadow' || world.theme==='shire'){
+    for(var i=0;i<50;i++){
+      var fl = sph(0.06, [0xf8c8e8,0xf8e878,0xffffff,0xc8a8f8][i%4], {em:0xf8e8c8, emI:0.25});
+      fl.position.set((Math.random()-0.5)*30, 0.06, -Math.random()*20+4);
+      scene.add(fl);
+    }
+  }
+  if(world.theme==='shire'){
+    var hill = sph(5, 0x3a7a3a); hill.position.set(-7,-3.4,-10); scene.add(hill);
+    var door = cyl(0.9,0.9,0.15, 0x8a6a2a, 16); door.rotation.x = Math.PI/2; door.position.set(-6.2,1.0,-6.4); scene.add(door);
+  }
+  if(world.theme==='guild'){
+    var hall = box(9,5,4, 0x8a6a48); hall.position.set(0,2.5,-11); scene.add(hall);
+    var roof = cone(7,3, 0xc84830, 4); roof.position.set(0,6.4,-11); roof.rotation.y = Math.PI/4; scene.add(roof);
+    var banner = box(2.4,3,0.1, 0xf0e8d8); banner.position.set(0,3.4,-8.9); scene.add(banner);
+    var emblem = box(1.1,1.4,0.05, 0xe86828, {em:0xe86828, emI:0.4}); emblem.position.set(0,3.4,-8.82); scene.add(emblem);
+  }
+  if(world.theme==='city'){
+    for(var ci=0;ci<8;ci++){
+      var bw = 2+Math.random()*1.6, bh = 6+Math.random()*9;
+      var b = box(bw,bh,bw, 0x1c2030); b.position.set(-16+ci*4.5, bh/2, -14-Math.random()*8); scene.add(b);
+      for(var wi=0;wi<5;wi++){
+        var win = box(0.3,0.42,0.05, 0xf8e8a0, {em:0xf8e8a0, emI:0.8});
+        win.position.set(b.position.x-bw/3+Math.random()*bw*0.66, 1+Math.random()*(bh-2), b.position.z+bw/2+0.01);
+        scene.add(win);
+      }
+    }
+  }
+  if(world.theme==='tower'){
+    var deck = cyl(9,10,0.5, 0x3a4058, 24); deck.position.y = -0.25; scene.add(deck);
+    var ringT = new THREE.Mesh(new THREE.TorusGeometry(9.4,0.12,8,40), mat(0x48d8f8,{em:0x48d8f8,emI:0.8}));
+    ringT.rotation.x = Math.PI/2; ringT.position.y = 0.1; scene.add(ringT);
+    var earth = sph(6, 0x2858b8, {em:0x3868c8, emI:0.35}); earth.position.set(10,7,-26); scene.add(earth);
+  }
+  if(world.theme==='village'){
+    for(var vi=0;vi<4;vi++){
+      var hut = box(2,1.8,2, 0x8a7050); hut.position.set(-7+vi*4.6, 0.9, -9-(vi%2)*2); scene.add(hut);
+      var hr = cone(1.6,1.3, 0x6a4a2a, 4); hr.position.set(hut.position.x, 2.4, hut.position.z); hr.rotation.y = Math.PI/4; scene.add(hr);
+    }
+  }
+  setCam(0, 2.8, 10.5, 0, 1.4, -2);
+  animMixers.push({update:function(){
+    var tt = Date.now()/1000;
+    camBase.pos.x = Math.sin(tt*0.1)*1.4;
+    camBase.pos.y = 2.8 + Math.sin(tt*0.14)*0.2;
+  }});
+}
+var _endQueue = [], _endDone = null;
+function playEndingCutscene(done){
+  _endDone = done;
+  _endQueue = ENDING_WORLDS.filter(function(w){
+    return w.heroes.some(function(id){ return G.party.some(function(p){ return p.id===id; }); });
+  });
+  showScreen('cutscene-screen');
+  nextEndingScene();
+}
+function nextEndingScene(){
+  if(!_endQueue.length){
+    // THE END
+    clearScene(); currentMode = 'cutscene';
+    skyDome(0x060618, 0x060618); starField(500, 220, 5);
+    baseLights(0.5, 0.6, 0x8899ff);
+    var moon = sph(3.5, 0xe8e8c0, {em:0xe8e8c0, emI:0.9}); moon.position.set(10,22,-55); scene.add(moon);
+    scene.add(groundPlane(0x0c1c12, 300));
+    setCam(0,3,10, 0,3,-10);
+    $('csTitle').textContent = '✦ THE END ✦';
+    $('csCaption').innerHTML = 'Every chain broken. Every clock restarted. Every hero home.<br><br>Thank you for playing<br>TRAPPED IN ANOTHER WORLD.';
+    $('csNext').textContent = '🏠 TITLE SCREEN';
+    $('csNext').onclick = function(){
+      if(_endDone) _endDone();
+    };
+    return;
+  }
+  var world = _endQueue.shift();
+  buildEndingScene(world);
+  // returning heroes step out of a rift on the left
+  var portalPos = new THREE.Vector3(-6.5, 1.2, 1.5);
+  portalAt(portalPos, '#c8a8f8', 80);
+  var returning = G.party.filter(function(p){ return world.heroes.indexOf(p.id)>=0; });
+  returning.forEach(function(ch, i){
+    setTimeout(function(){
+      var m = buildHero(ch);
+      m.position.set(-6.5, 0, 1.5 + i*0.4);
+      m.rotation.y = Math.PI/2 + 0.35; // walk toward the greeters (right side)
+      scene.add(m);
+      var targetX = -1.6 + i*1.0, targetZ = 0.6 + (i%2)*0.8;
+      var walking = {on:true};
+      tween(m.position, {x:targetX, z:targetZ}, 2100, 'inout', function(){
+        walking.on = false;
+        m.rotation.y = Math.PI/2;
+        // greeting jump
+        tween(m.position, {y:0.5}, 220, 'out', function(){ tween(m.position, {y:0}, 240, 'in'); });
+      });
+      animMixers.push({update:function(dt){
+        if(currentMode!=='cutscene') return;
+        applyWalkAnim(m, walking.on, dt, 0);
+      }});
+    }, 400 + i*450);
+  });
+  // the ones who waited, on the right — waving, hopping, calling names
+  (world.greeters||[]).forEach(function(gr, i){
+    var m = gr.cat ? tinyCat(gr.cat) : buildHumanoid(gr.look||{});
+    if(gr.scale) m.scale.setScalar(gr.scale);
+    m.position.set(2.2 + i*1.25, 0, -1.2 - (i%2)*1.0);
+    m.rotation.y = -Math.PI/2; // facing the arrivals
+    scene.add(m);
+    (function(mm, n){
+      animMixers.push({update:function(dt){
+        if(currentMode!=='cutscene') return;
+        var tt = Date.now()/1000 + n;
+        // excited hop + wave
+        mm.position.y = (gr.scale?0:0) + Math.abs(Math.sin(tt*3.2))*0.12;
+        if(mm.userData.armR) mm.userData.armR.rotation.x = -2.4 + Math.sin(tt*7)*0.5;
+        if(mm.userData.armL && n%2===0) mm.userData.armL.rotation.x = -2.2 + Math.cos(tt*6)*0.5;
+      }});
+      setTimeout(function(){
+        floatStatus(gr.name, '#f8e8a0', mm.position.clone().setY((gr.scale||1)*2.2));
+        starsAt(mm.position.clone().setY(1.6), 3, '#f8e8a0');
+      }, 1200 + n*420);
+    })(m, i);
+  });
+  // celebration sparks
+  for(var s=0;s<5;s++){
+    (function(n){ setTimeout(function(){
+      starsAt(new THREE.Vector3(-3+Math.random()*7, 2.2+Math.random()*1.5, -1+Math.random()*3), 5, ['#f8c840','#f88ac8','#8ac8f8'][n%3]);
+    }, 1600+n*600); })(s);
+  }
+  $('csTitle').textContent = world.title;
+  $('csCaption').innerHTML = world.caption;
+  $('csNext').textContent = _endQueue.length ? 'NEXT ▶' : 'FINALE ▶';
+  $('csNext').onclick = nextEndingScene;
 }
 
 // ════════════════════════════════════════════════════
@@ -4256,12 +4612,14 @@ function saveGame(){
   try{
     localStorage.setItem(SAVE_KEY, JSON.stringify({
       partySelection: G._partySelection,
-      party: G.party.map(function(ch){ return {hp:ch.hp, mp:ch.mp}; }),
+      party: G.party.map(function(ch){ return {hp:ch.hp, mp:ch.mp, level:ch.level||1, exp:ch.exp||0,
+        maxHp:ch.maxHp, maxMp:ch.maxMp, atk:ch.atk, mag:ch.mag, def:ch.def, spd:ch.spd}; }),
       gold: G.gold, totalExp: G.totalExp, items: G.items,
       currentLocation: G.currentLocation,
       liberatedTowns: G_STORY.liberatedTowns,
       bossesDefeated: G_STORY.bossesDefeated,
       storyComplete: G_STORY.storyComplete,
+      trophies: G.trophies,
       spiritsUnlocked: SPIRITS.map(function(s){ return s.unlocked; }),
     }));
   }catch(e){}
@@ -4276,8 +4634,12 @@ function loadGame(){
       G._partySelection = s.partySelection;
       G.party = s.partySelection.map(function(idx,i){
         var ch = JSON.parse(JSON.stringify(CHARS[idx]));
-        ch.hp = (s.party && s.party[i]) ? s.party[i].hp : ch.maxHp;
-        ch.mp = (s.party && s.party[i]) ? s.party[i].mp : ch.maxMp;
+        var sv = s.party && s.party[i];
+        if(sv){
+          ch.level = sv.level||1; ch.exp = sv.exp||0;
+          if(sv.maxHp){ ch.maxHp=sv.maxHp; ch.maxMp=sv.maxMp; ch.atk=sv.atk; ch.mag=sv.mag; ch.def=sv.def; ch.spd=sv.spd; }
+          ch.hp = sv.hp; ch.mp = sv.mp;
+        } else { ch.hp = ch.maxHp; ch.mp = ch.maxMp; ch.level = 1; ch.exp = 0; }
         ch.buffs = {}; ch.parryStacks = ch.parryStacks||0;
         return ch;
       });
@@ -4289,6 +4651,7 @@ function loadGame(){
     G_STORY.liberatedTowns = s.liberatedTowns || {};
     G_STORY.bossesDefeated = s.bossesDefeated || 0;
     G_STORY.storyComplete = !!s.storyComplete;
+    G.trophies = s.trophies || {};
     if(s.spiritsUnlocked) SPIRITS.forEach(function(sp,i){ sp.unlocked = !!s.spiritsUnlocked[i]; });
     enterWorld();
     showToast('Journey resumed!');

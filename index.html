@@ -4936,14 +4936,20 @@ function exploreWalkDanger(dist){
     G.exploreDanger = 0;
     $('dangerFill').style.width = '0%';
     var L = LOCATIONS[G.exploreArea||G.currentLocation];
-    var roll2 = Math.random();
-    if(roll2<0.25){ // sometimes the old myths find you even here
-      G.wildSet = rollWildSet();
-    } else if(roll2<0.5){ // ...and sometimes something far worse
-      G.wildSet = rollDbzSet();
+    if(!G_STORY.firstExploreDone){
+      // the wilds' first welcome: little green seeds in the soil...
+      G_STORY.firstExploreDone = true;
+      G.wildSet = JSON.parse(JSON.stringify(DBZ_SETS[0]));
     } else {
-      var eSet = L.enemies || [0];
-      G.battleNum = Math.max(0, Math.min(eSet[Math.floor(Math.random()*eSet.length)], ENEMY_SETS.length-1));
+      var roll2 = Math.random();
+      if(roll2<0.25){ // sometimes the old myths find you even here
+        G.wildSet = rollWildSet();
+      } else if(roll2<0.5){ // ...and sometimes something far worse
+        G.wildSet = rollDbzSet();
+      } else {
+        var eSet = L.enemies || [0];
+        G.battleNum = Math.max(0, Math.min(eSet[Math.floor(Math.random()*eSet.length)], ENEMY_SETS.length-1));
+      }
     }
     _encPending = true;
     G.prevScreen = 'explore-screen';
@@ -5272,6 +5278,7 @@ function saveGame(){
       bossesDefeated: G_STORY.bossesDefeated,
       storyComplete: G_STORY.storyComplete,
       seenSaibamanScene: !!G_STORY.seenSaibamanScene,
+      firstExploreDone: !!G_STORY.firstExploreDone,
       trophies: G.trophies,
       spiritsUnlocked: SPIRITS.map(function(s){ return s.unlocked; }),
     }));
@@ -5305,6 +5312,7 @@ function loadGame(){
     G_STORY.bossesDefeated = s.bossesDefeated || 0;
     G_STORY.storyComplete = !!s.storyComplete;
     G_STORY.seenSaibamanScene = !!s.seenSaibamanScene;
+    G_STORY.firstExploreDone = !!s.firstExploreDone;
     G.trophies = s.trophies || {};
     if(s.spiritsUnlocked) SPIRITS.forEach(function(sp,i){ sp.unlocked = !!s.spiritsUnlocked[i]; });
     enterWorld();
